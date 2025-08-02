@@ -1,19 +1,21 @@
 "use server";
 
 import { suggestSkills } from "@/ai/flows/suggest-skills";
+import { updateUserProfile } from "@/lib/data";
+import { auth } from "@/lib/firebase";
 import { z } from "zod";
 
-const formSchema = z.object({
+const skillSuggesterSchema = z.object({
   jobDescription: z.string().min(10, 'Job description must be at least 10 characters long.'),
 });
 
-type State = {
+type SkillSuggesterState = {
   suggestedSkills?: string[];
   error?: string | null;
 }
 
-export async function handleSkillSuggestion(prevState: State, formData: FormData): Promise<State> {
-  const validatedFields = formSchema.safeParse({
+export async function handleSkillSuggestion(prevState: SkillSuggesterState, formData: FormData): Promise<SkillSuggesterState> {
+  const validatedFields = skillSuggesterSchema.safeParse({
     jobDescription: formData.get('jobDescription'),
   });
   
@@ -34,4 +36,43 @@ export async function handleSkillSuggestion(prevState: State, formData: FormData
     console.error(error);
     return { suggestedSkills: [], error: 'An unexpected error occurred.' };
   }
+}
+
+const profileFormSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters."),
+  specialty: z.string().optional(),
+  bio: z.string().optional(),
+  // For simplicity, we'll handle skills and locations separately for now.
+});
+
+type ProfileFormState = {
+    message: string;
+    error?: boolean;
+}
+
+export async function handleUpdateProfile(userId: string, prevState: ProfileFormState, formData: FormData): Promise<ProfileFormState> {
+    if (!userId) {
+        return { message: "Error: User not authenticated.", error: true };
+    }
+
+    const validatedFields = profileFormSchema.safeParse({
+        name: formData.get('name'),
+        specialty: formData.get('specialty'),
+        bio: formData.get('bio'),
+    });
+
+    if (!validatedFields.success) {
+        return {
+            message: validatedFields.error.flatten().fieldErrors.name?.[0] || 'Invalid input.',
+            error: true
+        };
+    }
+
+    try {
+        await updateUserProfile(userId, validatedFields.data);
+        return { message: "Profile updated successfully!", error: false };
+    } catch (error) {
+        console.error("Error updating profile:", error);
+        return { message: "An unexpected error occurred while updating the profile.", error: true };
+    }
 }
