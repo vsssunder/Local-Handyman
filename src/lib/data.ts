@@ -1,5 +1,5 @@
 import { db } from "./firebase";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, collection, addDoc, getDocs, getDocFromCache, query, where } from "firebase/firestore";
 
 export const serviceCategories = [
   "Plumbing",
@@ -49,7 +49,7 @@ export const featuredWorkers = [
   },
 ];
 
-export const jobs = [
+export let jobs = [
   {
     id: "job-1",
     title: "Leaky Faucet Repair in Kitchen",
@@ -92,7 +92,7 @@ export const jobs = [
   },
 ];
 
-export const workers = [
+export let workers = [
   ...featuredWorkers,
   {
     id: "5",
@@ -167,3 +167,42 @@ export const getUserProfile = async (userId: string) => {
     throw error;
   }
 };
+
+export const addJob = async (jobData: any) => {
+  try {
+    const docRef = await addDoc(collection(db, "jobs"), {
+      ...jobData,
+      postedDate: new Date().toISOString(),
+      status: 'open',
+    });
+    console.log("Job added with ID: ", docRef.id);
+    return docRef.id;
+  } catch (error) {
+    console.error("Error adding job: ", error);
+    throw error;
+  }
+};
+
+export const getAllJobs = async () => {
+  const jobsCol = collection(db, 'jobs');
+  const jobSnapshot = await getDocs(jobsCol);
+  const jobList = jobSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  return jobList;
+}
+
+export const getJobById = async (jobId: string) => {
+  const docRef = doc(db, "jobs", jobId);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    return { id: docSnap.id, ...docSnap.data() };
+  } else {
+    return null;
+  }
+};
+
+export const getWorkers = async () => {
+  const q = query(collection(db, "users"), where("role", "==", "worker"));
+  const querySnapshot = await getDocs(q);
+  const workerList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  return workerList;
+}

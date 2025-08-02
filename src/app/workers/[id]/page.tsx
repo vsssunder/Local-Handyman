@@ -1,4 +1,7 @@
-import { workers } from "@/lib/data";
+"use client";
+
+import { useEffect, useState } from "react";
+import { getUserProfile } from "@/lib/data";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -7,12 +10,86 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Star, MapPin, MessageCircle } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+
+type WorkerProfile = {
+  id: string;
+  name: string;
+  specialty: string;
+  rating: number;
+  reviews?: { id: string; author: string; rating: number; comment: string }[];
+  bio?: string;
+  skills: string[];
+  workingLocations?: string[];
+  imageUrl?: string;
+  avatarUrl: string;
+};
 
 export default function WorkerProfilePage({ params }: { params: { id: string } }) {
-  const worker = workers.find((w) => w.id === params.id);
+  const [worker, setWorker] = useState<WorkerProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchWorker = async () => {
+      setLoading(true);
+      const profile = (await getUserProfile(params.id)) as WorkerProfile | null;
+      if (!profile || profile.role !== 'worker') {
+        notFound();
+      }
+      // Use placeholder image if not provided
+      profile.imageUrl = profile.imageUrl || 'https://placehold.co/400x250.png';
+      setWorker(profile);
+      setLoading(false);
+    };
+    fetchWorker();
+  }, [params.id]);
+  
+  if (loading) {
+    return (
+       <div className="bg-primary/5">
+         <div className="container mx-auto py-12 px-4">
+           <div className="grid lg:grid-cols-3 gap-8">
+             <div className="lg:col-span-1 space-y-8">
+                <Card>
+                  <Skeleton className="h-48 w-full" />
+                  <CardContent className="p-6 text-center -mt-16">
+                     <Skeleton className="w-24 h-24 rounded-full mx-auto border-4 border-background shadow-md" />
+                     <Skeleton className="h-7 w-3/4 mx-auto mt-4" />
+                     <Skeleton className="h-5 w-1/2 mx-auto mt-2" />
+                     <Skeleton className="h-6 w-1/3 mx-auto mt-2" />
+                     <Skeleton className="h-10 w-full mt-4" />
+                  </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader> <Skeleton className="h-6 w-1/2" /> </CardHeader>
+                    <CardContent className="space-y-2">
+                        <Skeleton className="h-5 w-full" />
+                        <Skeleton className="h-5 w-2/3" />
+                    </CardContent>
+                </Card>
+             </div>
+             <div className="lg:col-span-2 space-y-8">
+                <Card>
+                   <CardHeader> <Skeleton className="h-6 w-1/4" /> </CardHeader>
+                   <CardContent> <Skeleton className="h-20 w-full" /> </CardContent>
+                </Card>
+                <Card>
+                   <CardHeader> <Skeleton className="h-6 w-1/5" /> </CardHeader>
+                   <CardContent> <Skeleton className="h-16 w-full" /> </CardContent>
+                </Card>
+                <Card>
+                   <CardHeader> <Skeleton className="h-6 w-1/4" /> </CardHeader>
+                   <CardContent> <Skeleton className="h-24 w-full" /> </CardContent>
+                </Card>
+             </div>
+           </div>
+         </div>
+       </div>
+    )
+  }
 
   if (!worker) {
-    notFound();
+    return notFound();
   }
 
   return (
@@ -23,7 +100,7 @@ export default function WorkerProfilePage({ params }: { params: { id: string } }
           <div className="lg:col-span-1 space-y-8">
             <Card className="overflow-hidden">
                <Image
-                src={worker.imageUrl}
+                src={worker.imageUrl || "https://placehold.co/400x250.png"}
                 alt={worker.name}
                 width={400}
                 height={250}

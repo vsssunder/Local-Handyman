@@ -1,23 +1,121 @@
-import { jobs, workers } from "@/lib/data";
+"use client";
+
+import { useEffect, useState } from "react";
+import { getJobById, getWorkers, getUserProfile } from "@/lib/data";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { MapPin, Calendar, DollarSign, User, Star } from "lucide-react";
+import { MapPin, Calendar, DollarSign, User, Star, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { formatDistanceToNow } from "date-fns";
+import { Skeleton } from "@/components/ui/skeleton";
+
+type Job = {
+  id: string;
+  title: string;
+  customerName: string;
+  customerId: string;
+  location: string;
+  category: string;
+  postedDate: string;
+  description: string;
+  budget: number;
+};
+
+type Worker = {
+  id: string;
+  name: string;
+  avatarUrl: string;
+  specialty: string;
+  rating: number;
+}
+
+type Customer = {
+    name: string;
+    avatarUrl: string;
+}
 
 export default function JobDetailPage({ params }: { params: { id: string } }) {
-  const job = jobs.find((j) => j.id === params.id);
+  const [job, setJob] = useState<Job | null>(null);
+  const [applicants, setApplicants] = useState<Worker[]>([]);
+  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchJobData = async () => {
+      const jobData = (await getJobById(params.id)) as Job | null;
+      if (!jobData) {
+        notFound();
+      }
+      setJob(jobData);
+      
+      const customerProfile = await getUserProfile(jobData.customerId);
+      if (customerProfile) {
+        setCustomer({ name: customerProfile.name, avatarUrl: customerProfile.avatarUrl });
+      }
+
+
+      // In a real app, you'd fetch actual applicants for the job.
+      // For now, we'll just show some example workers.
+      const workerData = (await getWorkers()) as Worker[];
+      setApplicants(workerData.slice(0, 3));
+      
+      setLoading(false);
+    };
+
+    fetchJobData();
+  }, [params.id]);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto py-12 px-4">
+        <div className="grid md:grid-cols-3 gap-8">
+            <div className="md:col-span-2">
+                <Card>
+                    <CardHeader>
+                        <Skeleton className="h-6 w-24 mb-2" />
+                        <Skeleton className="h-8 w-3/4 mb-4" />
+                        <div className="flex gap-4">
+                            <Skeleton className="h-5 w-1/3" />
+                            <Skeleton className="h-5 w-1/3" />
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <Skeleton className="h-px w-full my-4" />
+                        <Skeleton className="h-6 w-1/4 mb-4" />
+                        <Skeleton className="h-24 w-full mb-6" />
+                        <Skeleton className="h-6 w-1/5 mb-2" />
+                        <Skeleton className="h-8 w-1/4 mb-8" />
+                        <Skeleton className="h-12 w-1/3 mx-auto" />
+                    </CardContent>
+                </Card>
+            </div>
+            <div className="space-y-6">
+                <Card>
+                    <CardHeader><Skeleton className="h-6 w-1/2" /></CardHeader>
+                    <CardContent><Skeleton className="h-16 w-full" /></CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader><Skeleton className="h-6 w-3/4" /></CardHeader>
+                    <CardContent className="space-y-4">
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!job) {
-    notFound();
+    return notFound();
   }
-  
-  const applicants = workers.slice(0,3);
 
   return (
     <div className="container mx-auto py-12 px-4">
@@ -63,14 +161,20 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
               <CardTitle className="font-headline">Posted By</CardTitle>
             </CardHeader>
             <CardContent className="flex items-center gap-4">
-              <Avatar className="h-16 w-16">
-                 <AvatarImage src="https://placehold.co/64x64.png" alt={job.customer} data-ai-hint="person" />
-                 <AvatarFallback>{job.customer.charAt(0)}</AvatarFallback>
-              </Avatar>
-              <div>
-                <p className="font-semibold text-lg">{job.customer}</p>
-                <p className="text-sm text-muted-foreground">Customer</p>
-              </div>
+              {customer ? (
+                <>
+                  <Avatar className="h-16 w-16">
+                     <AvatarImage src={customer.avatarUrl} alt={customer.name} data-ai-hint="person" />
+                     <AvatarFallback>{customer.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-semibold text-lg">{customer.name}</p>
+                    <p className="text-sm text-muted-foreground">Customer</p>
+                  </div>
+                </>
+              ) : (
+                <Skeleton className="h-16 w-full" />
+              )}
             </CardContent>
           </Card>
           <Card>

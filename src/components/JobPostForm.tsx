@@ -23,8 +23,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { serviceCategories } from "@/lib/data";
+import { serviceCategories, addJob } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
+import { auth } from "@/lib/firebase";
+import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 
 const jobPostSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters long."),
@@ -37,6 +40,7 @@ const jobPostSchema = z.object({
 
 export function JobPostForm() {
   const { toast } = useToast();
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof jobPostSchema>>({
     resolver: zodResolver(jobPostSchema),
@@ -46,14 +50,40 @@ export function JobPostForm() {
       location: "",
     },
   });
+  
+  const { isSubmitting } = form.formState;
 
-  function onSubmit(values: z.infer<typeof jobPostSchema>) {
-    console.log(values);
-    toast({
-      title: "Job Posted!",
-      description: "Your job has been successfully posted. Workers can now see and apply for it.",
-    });
-    form.reset();
+  async function onSubmit(values: z.infer<typeof jobPostSchema>) {
+    const user = auth.currentUser;
+    if (!user) {
+        toast({
+            title: "Error",
+            description: "You must be logged in to post a job.",
+            variant: "destructive"
+        });
+        return;
+    }
+
+    try {
+      const jobId = await addJob({
+        ...values,
+        customerId: user.uid,
+        customerName: user.displayName || `User ${user.uid.substring(0,5)}` // Or fetch from profile
+      });
+      toast({
+        title: "Job Posted!",
+        description: "Your job has been successfully posted. Workers can now see and apply for it.",
+      });
+      form.reset();
+      router.push(`/jobs/${jobId}`);
+    } catch (error) {
+       toast({
+        title: "Error",
+        description: "There was a problem posting your job. Please try again.",
+        variant: "destructive"
+       });
+       console.error(error);
+    }
   }
 
   return (
@@ -164,7 +194,10 @@ export function JobPostForm() {
           />
         </div>
         <div className="text-center">
-          <Button type="submit" size="lg" className="w-full md:w-1/2 bg-accent text-accent-foreground hover:bg-accent/90">Post Job</Button>
+          <Button type="submit" size="lg" disabled={isSubmitting} className="w-full md:w-1/2 bg-accent text-accent-foreground hover:bg-accent/90">
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Post Job
+          </Button>
         </div>
       </form>
     </Form>

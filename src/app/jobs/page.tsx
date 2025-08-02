@@ -1,3 +1,7 @@
+
+"use client";
+
+import { useEffect, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -8,10 +12,36 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { JobCard } from "@/components/JobCard";
-import { jobs, serviceCategories } from "@/lib/data";
+import { getAllJobs, serviceCategories } from "@/lib/data";
 import { Search } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card } from "@/components/ui/card";
+
+type Job = {
+  id: string;
+  title: string;
+  customer: string;
+  location: string;
+  category: string;
+  postedDate: string;
+  description: string;
+  budget: number;
+};
 
 export default function JobsPage() {
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchJobs = async () => {
+      setLoading(true);
+      const jobList = await getAllJobs();
+      setJobs(jobList as Job[]);
+      setLoading(false);
+    };
+    fetchJobs();
+  }, []);
+
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="mb-8 text-center">
@@ -47,11 +77,27 @@ export default function JobsPage() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {jobs.map((job) => (
-          <JobCard key={job.id} job={job} />
-        ))}
-      </div>
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[...Array(6)].map((_, i) => (
+            <Card key={i}>
+              <div className="p-6">
+                <Skeleton className="h-4 w-1/3 mb-2" />
+                <Skeleton className="h-6 w-full mb-4" />
+                <Skeleton className="h-4 w-1/4 mb-4" />
+                <Skeleton className="h-12 w-full mb-4" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {jobs.map((job) => (
+            <JobCard key={job.id} job={job} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

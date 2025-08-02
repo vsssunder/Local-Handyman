@@ -8,7 +8,7 @@ import { formatDistanceToNow } from "date-fns";
 type Job = {
   id: string;
   title: string;
-  customer: string;
+  customerName: string;
   location: string;
   category: string;
   postedDate: string;
@@ -32,7 +32,7 @@ export function JobCard({ job }: JobCardProps) {
             </div>
         </div>
         <CardTitle className="pt-2 font-headline">{job.title}</CardTitle>
-        <CardDescription>by {job.customer}</CardDescription>
+        <CardDescription>by {job.customerName}</CardDescription>
       </CardHeader>
       <CardContent className="flex-grow">
         <p className="line-clamp-3 text-sm text-muted-foreground">
