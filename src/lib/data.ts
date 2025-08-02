@@ -1,3 +1,6 @@
+import { db } from "./firebase";
+import { doc, setDoc } from "firebase/firestore";
+
 export const serviceCategories = [
   "Plumbing",
   "Painting",
@@ -108,6 +111,7 @@ export const workers = [
   },
 ];
 
+// This will be replaced by Firestore fetching later.
 export let userProfiles: Record<string, any> = {
   customer: {
     id: "user-cust-1",
@@ -136,7 +140,13 @@ export let userProfiles: Record<string, any> = {
   }
 };
 
-export const addUserProfile = (profile: any) => {
-  const key = profile.role === 'worker' ? `worker-${profile.id}` : `customer-${profile.id}`;
-  userProfiles[key] = profile;
+export const addUserProfile = async (profile: any) => {
+  try {
+    await setDoc(doc(db, "users", profile.id), profile);
+    console.log("User profile saved to Firestore");
+  } catch (error) {
+    console.error("Error adding document: ", error);
+    // You might want to throw the error or handle it appropriately
+    throw error;
+  }
 };

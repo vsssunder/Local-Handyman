@@ -96,7 +96,7 @@ export default function SignupPage() {
         })
       };
       
-      addUserProfile(newUserProfile);
+      await addUserProfile(newUserProfile);
 
       toast({ title: "Success!", description: "Your account has been created." });
       
