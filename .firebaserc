@@ -1,5 +1,14 @@
 {
   "projects": {
     "default": "local-handyman-connect"
+  },
+  "targets": {
+    "local-handyman-connect": {
+      "hosting": {
+        "app": [
+          "local-handyman-connect"
+        ]
+      }
+    }
   }
 }
