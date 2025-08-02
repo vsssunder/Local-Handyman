@@ -14,10 +14,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { auth } from "@/lib/firebase";
-import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from "firebase/auth";
+import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult, UserCredential } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { addUserProfile } from "@/lib/data";
 
 export default function SignupPage() {
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -43,6 +44,10 @@ export default function SignupPage() {
         'expired-callback': () => {
           // Response expired. Ask user to solve reCAPTCHA again.
            setError("reCAPTCHA expired. Please try again.");
+           // Reset reCAPTCHA
+           if (window.grecaptcha) {
+            window.grecaptcha.reset();
+           }
         }
       });
       
@@ -66,10 +71,37 @@ export default function SignupPage() {
     }
     setIsSubmitting(true);
     try {
-      await confirmationResult.confirm(verificationCode);
+      const userCredential: UserCredential = await confirmationResult.confirm(verificationCode);
+      const user = userCredential.user;
+
+      // Persist user data
+      const newUserProfile = {
+        id: user.uid,
+        name: `User ${user.uid.substring(0, 5)}`, // Placeholder name
+        email: user.email, // This will be null with phone auth
+        phone: user.phoneNumber,
+        role: role,
+        avatarUrl: "https://placehold.co/40x40.png",
+        ...(role === 'worker' ? {
+          specialty: "New Worker",
+          rating: 0,
+          skills: [],
+          workingLocations: [],
+          bio: "",
+          activeJobs: [],
+          completedJobs: [],
+        } : {
+          activeJobs: [],
+          completedJobs: [],
+        })
+      };
+      
+      addUserProfile(newUserProfile);
+
       toast({ title: "Success!", description: "Your account has been created." });
-      // Here you would typically create a user profile in your database
+      
       router.push("/dashboard");
+
     } catch (err: any) {
       console.error(err);
       setError(err.message);
@@ -159,4 +191,9 @@ export default function SignupPage() {
       </Card>
     </div>
   );
+}
+declare global {
+  interface Window {
+    grecaptcha: any;
+  }
 }

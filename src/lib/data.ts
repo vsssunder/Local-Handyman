@@ -108,7 +108,7 @@ export const workers = [
   },
 ];
 
-export const userProfiles = {
+export let userProfiles: Record<string, any> = {
   customer: {
     id: "user-cust-1",
     name: "Alice Johnson",
@@ -134,4 +134,9 @@ export const userProfiles = {
       {...jobs[0], status: 'Completed', earnings: 140},
     ],
   }
-}
+};
+
+export const addUserProfile = (profile: any) => {
+  const key = profile.role === 'worker' ? `worker-${profile.id}` : `customer-${profile.id}`;
+  userProfiles[key] = profile;
+};
