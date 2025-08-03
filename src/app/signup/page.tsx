@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -20,6 +20,16 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { addUserProfile } from "@/lib/data";
 
+
+// It's good practice to declare this type globally or in a shared types file
+declare global {
+  interface Window {
+    grecaptcha: any;
+    recaptchaVerifier: RecaptchaVerifier;
+  }
+}
+
+
 export default function SignupPage() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [role, setRole] = useState("customer");
@@ -30,31 +40,36 @@ export default function SignupPage() {
   const { toast } = useToast();
   const router = useRouter();
 
+  // Effect to ensure the reCAPTCHA container is only created once
+  useEffect(() => {
+    if (!window.recaptchaVerifier) {
+      // The container will be used by the handleSendVerificationCode function
+    }
+  }, []);
+
   const handleSendVerificationCode = async () => {
     setError(null);
     setIsSubmitting(true);
     try {
-      // It's recommended to use a visible reCAPTCHA instead of an invisible one
-      // for better security and user trust.
-      const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'normal', // 'invisible' is an option but not recommended
+      // Use window.recaptchaVerifier to avoid creating multiple instances
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        'size': 'normal', 
         'callback': (response: any) => {
-          // reCAPTCHA solved, allow signInWithPhoneNumber.
+          // reCAPTCHA solved
         },
         'expired-callback': () => {
-          // Response expired. Ask user to solve reCAPTCHA again.
            setError("reCAPTCHA expired. Please try again.");
-           // Reset reCAPTCHA
            if (window.grecaptcha) {
             window.grecaptcha.reset();
            }
         }
       });
       
-      const result = await signInWithPhoneNumber(auth, `+${phoneNumber}`, recaptchaVerifier);
+      const result = await signInWithPhoneNumber(auth, `+${phoneNumber}`, window.recaptchaVerifier);
       setConfirmationResult(result);
       toast({ title: "Verification code sent!", description: "Check your phone for the SMS message." });
-    } catch (err: any) {
+    } catch (err: any)
+     {
       console.error(err);
       setError(err.message);
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -81,7 +96,7 @@ export default function SignupPage() {
         email: user.email, // This will be null with phone auth
         phone: user.phoneNumber,
         role: role,
-        avatarUrl: "https://placehold.co/40x40.png",
+        avatarUrl: `https://placehold.co/128x128.png`,
         ...(role === 'worker' ? {
           specialty: "New Worker",
           rating: 0,
@@ -90,6 +105,7 @@ export default function SignupPage() {
           bio: "",
           activeJobs: [],
           completedJobs: [],
+           reviews: [],
         } : {
           activeJobs: [],
           completedJobs: [],
@@ -191,9 +207,4 @@ export default function SignupPage() {
       </Card>
     </div>
   );
-}
-declare global {
-  interface Window {
-    grecaptcha: any;
-  }
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,46 +12,132 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { auth } from "@/lib/firebase";
+import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from "firebase/auth";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
+
+// It's good practice to declare this type globally or in a shared types file
+declare global {
+  interface Window {
+    grecaptcha: any;
+    recaptchaVerifier: RecaptchaVerifier;
+  }
+}
 
 export default function LoginPage() {
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+  const router = useRouter();
+
+  const handleSendVerificationCode = async () => {
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        'size': 'normal',
+        'callback': () => {
+          // reCAPTCHA solved
+        },
+        'expired-callback': () => {
+           setError("reCAPTCHA expired. Please try again.");
+           if (window.grecaptcha) {
+            window.grecaptcha.reset();
+           }
+        }
+      });
+      
+      const result = await signInWithPhoneNumber(auth, `+${phoneNumber}`, window.recaptchaVerifier);
+      setConfirmationResult(result);
+      toast({ title: "Verification code sent!", description: "Check your phone for the SMS message." });
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message);
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    setError(null);
+    if (!confirmationResult) {
+      setError("Please request a verification code first.");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await confirmationResult.confirm(verificationCode);
+      toast({ title: "Logged In!", description: "You have successfully logged in." });
+      router.push("/dashboard");
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message);
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-14rem)] py-12">
       <Card className="mx-auto max-w-sm w-full">
         <CardHeader>
-          <CardTitle className="text-2xl font-headline">Login</CardTitle>
+          <CardTitle className="text-2xl font-headline">Login with Phone</CardTitle>
           <CardDescription>
-            Enter your email below to login to your account
+            Enter your phone number to login to your account.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="m@example.com"
-                required
-              />
-            </div>
-            <div className="grid gap-2">
-              <div className="flex items-center">
-                <Label htmlFor="password">Password</Label>
-                <Link
-                  href="#"
-                  className="ml-auto inline-block text-sm underline"
-                >
-                  Forgot your password?
-                </Link>
-              </div>
-              <Input id="password" type="password" required />
-            </div>
-            <Button type="submit" className="w-full">
-              Login
-            </Button>
-            <Button variant="outline" className="w-full">
-              Login with Google
-            </Button>
+             {!confirmationResult ? (
+              <>
+                <div className="grid gap-2">
+                  <Label htmlFor="phone-number">Phone Number</Label>
+                  <Input
+                    id="phone-number"
+                    type="tel"
+                    placeholder="1234567890"
+                    required
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
+                    disabled={isSubmitting}
+                  />
+                  <p className="text-xs text-muted-foreground">Include country code (e.g., 1 for US)</p>
+                </div>
+                <div id="recaptcha-container" className="my-4 flex justify-center"></div>
+                <Button onClick={handleSendVerificationCode} disabled={isSubmitting || !phoneNumber} className="w-full">
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Send Verification Code
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="grid gap-2">
+                  <Label htmlFor="verification-code">Verification Code</Label>
+                  <Input
+                    id="verification-code"
+                    type="text"
+                    placeholder="123456"
+                    required
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value)}
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <Button onClick={handleVerifyCode} disabled={isSubmitting || !verificationCode} className="w-full">
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Verify & Login
+                </Button>
+              </>
+            )}
+
+            {error && <p className="text-sm text-destructive text-center">{error}</p>}
           </div>
           <div className="mt-4 text-center text-sm">
             Don&apos;t have an account?{" "}

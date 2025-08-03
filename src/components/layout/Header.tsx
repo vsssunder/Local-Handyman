@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { Hand, Menu } from "lucide-react";
+import { Hand, Menu, LogOut } from "lucide-react";
+import { useEffect, useState } from "react";
+import { User, onAuthStateChanged, signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { getUserProfile } from "@/lib/data";
 
 const navLinks = [
   { href: "/jobs", label: "Browse Jobs" },
@@ -26,8 +32,46 @@ const navLinks = [
   { href: "/profile", label: "Profile" },
 ];
 
+type UserProfile = {
+  name: string;
+  avatarUrl: string;
+  email: string | null;
+}
+
 export function Header() {
-  const isLoggedIn = false; // Placeholder for authentication state
+  const [user, setUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        const profile = await getUserProfile(currentUser.uid);
+        setUserProfile(profile as UserProfile);
+      } else {
+        setUserProfile(null);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      toast({ title: "Logged Out", description: "You have been successfully logged out." });
+      router.push("/");
+    } catch (error) {
+      console.error("Logout Error:", error);
+      toast({ title: "Error", description: "Failed to log out.", variant: "destructive" });
+    }
+  };
+  
+  const isLoggedIn = user !== null && !loading;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -53,22 +97,22 @@ export function Header() {
         </div>
 
         <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
-          {isLoggedIn ? (
+          {loading ? null : isLoggedIn && userProfile ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src="https://placehold.co/40x40.png" alt="User" />
-                    <AvatarFallback>U</AvatarFallback>
+                    <AvatarImage src={userProfile.avatarUrl} alt={userProfile.name} />
+                    <AvatarFallback>{userProfile.name.charAt(0)}</AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">User Name</p>
+                    <p className="text-sm font-medium leading-none">{userProfile.name}</p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      user@email.com
+                      {user.phoneNumber || userProfile.email || 'No contact info'}
                     </p>
                   </div>
                 </DropdownMenuLabel>
@@ -80,7 +124,10 @@ export function Header() {
                   <Link href="/dashboard">Dashboard</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Log out</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Log out
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
@@ -123,16 +170,27 @@ export function Header() {
                       </SheetClose>
                     ))}
                     <hr className="my-4"/>
-                     <SheetClose asChild>
-                       <Button asChild variant="ghost" className="justify-start text-lg">
-                          <Link href="/login">Login</Link>
-                        </Button>
-                      </SheetClose>
-                      <SheetClose asChild>
-                        <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90 text-lg">
-                          <Link href="/signup">Sign Up</Link>
-                        </Button>
-                      </SheetClose>
+                    {isLoggedIn && userProfile ? (
+                       <SheetClose asChild>
+                          <Button onClick={handleLogout} variant="ghost" className="justify-start text-lg">
+                              <LogOut className="mr-2 h-5 w-5" />
+                              Log out
+                          </Button>
+                       </SheetClose>
+                    ) : (
+                      <>
+                        <SheetClose asChild>
+                          <Button asChild variant="ghost" className="justify-start text-lg">
+                              <Link href="/login">Login</Link>
+                            </Button>
+                          </SheetClose>
+                          <SheetClose asChild>
+                            <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90 text-lg">
+                              <Link href="/signup">Sign Up</Link>
+                            </Button>
+                        </SheetClose>
+                      </>
+                    )}
                   </nav>
                 </div>
               </SheetContent>
