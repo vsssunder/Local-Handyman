@@ -90,24 +90,21 @@ export default function ProfilePage() {
     }
   }, [formState, toast]);
 
-  const fetchProfile = async (currentUser: User) => {
-    const profile = (await getUserProfile(currentUser.uid)) as UserProfile | null;
-    if (profile) {
-      setUserProfile(profile);
-    } else {
-       toast({ title: "Error", description: "Could not load user profile.", variant: "destructive" });
-    }
-     setLoading(false);
-  }
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        await fetchProfile(currentUser);
+        const profile = (await getUserProfile(currentUser.uid)) as UserProfile | null;
+        if (profile) {
+          setUserProfile(profile);
+        } else {
+           toast({ title: "Error", description: "Could not load user profile.", variant: "destructive" });
+           router.push('/login');
+        }
       } else {
         router.push("/login");
       }
+      setLoading(false);
     });
     return () => unsubscribe();
   }, [router, toast]);

@@ -31,7 +31,11 @@ export default function DashboardPage() {
       if (currentUser) {
         setUser(currentUser);
         const profile = await getUserProfile(currentUser.uid);
-        setUserProfile(profile as UserProfile);
+        if (profile) {
+            setUserProfile(profile as UserProfile);
+        } else {
+            router.push("/login"); // Or a page to create profile
+        }
       } else {
         // No user is signed in.
         router.push("/login");
