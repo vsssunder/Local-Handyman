@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Hand, Menu, LogOut } from "lucide-react";
+import { Hand, Menu, LogOut, FilePlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { User, onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -36,6 +36,7 @@ type UserProfile = {
   name: string;
   avatarUrl: string;
   email: string | null;
+  role: string;
 }
 
 export function Header() {
@@ -93,6 +94,11 @@ export function Header() {
                 {link.label}
               </Link>
             ))}
+             {isLoggedIn && userProfile?.role === 'customer' && (
+               <Button asChild size="sm">
+                  <Link href="/jobs/post"><FilePlus className="mr-2 h-4 w-4"/> Post a Job</Link>
+                </Button>
+            )}
           </nav>
         </div>
 
@@ -159,6 +165,13 @@ export function Header() {
                     <span className="font-bold font-headline">Local Handyman</span>
                   </Link>
                   <nav className="flex flex-col space-y-4">
+                     {isLoggedIn && userProfile?.role === 'customer' && (
+                       <SheetClose asChild>
+                         <Button asChild size="sm" className="w-full">
+                            <Link href="/jobs/post"><FilePlus className="mr-2 h-4 w-4"/> Post a Job</Link>
+                          </Button>
+                       </SheetClose>
+                    )}
                     {navLinks.map((link) => (
                       <SheetClose asChild key={link.href}>
                         <Link
