@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -94,17 +95,24 @@ export default function ProfilePage() {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        const profile = (await getUserProfile(currentUser.uid)) as UserProfile | null;
-        if (profile) {
-          setUserProfile(profile);
-        } else {
-           toast({ title: "Error", description: "Could not load user profile.", variant: "destructive" });
-           router.push('/login');
+        try {
+          const profile = (await getUserProfile(currentUser.uid)) as UserProfile | null;
+          if (profile) {
+            setUserProfile(profile);
+          } else {
+            toast({ title: "Error", description: "Could not load user profile.", variant: "destructive" });
+            router.push('/login');
+          }
+        } catch (error) {
+          console.error("Failed to fetch user profile", error);
+          toast({ title: "Error", description: "Failed to fetch profile.", variant: "destructive" });
+        } finally {
+            setLoading(false);
         }
       } else {
         router.push("/login");
+        setLoading(false);
       }
-      setLoading(false);
     });
     return () => unsubscribe();
   }, [router, toast]);
@@ -336,3 +344,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+    
