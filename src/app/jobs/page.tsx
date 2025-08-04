@@ -20,7 +20,7 @@ import { Card } from "@/components/ui/card";
 type Job = {
   id: string;
   title: string;
-  customer: string;
+  customerName: string;
   location: string;
   category: string;
   postedDate: string;

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -68,7 +69,6 @@ export function JobPostForm() {
       const jobId = await addJob({
         ...values,
         customerId: user.uid,
-        customerName: user.displayName || `User ${user.uid.substring(0,5)}` // Or fetch from profile
       });
       toast({
         title: "Job Posted!",

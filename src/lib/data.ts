@@ -1,3 +1,4 @@
+
 import { db } from "./firebase";
 import { doc, setDoc, getDoc, collection, addDoc, getDocs, updateDoc, query, where, arrayUnion, arrayRemove } from "firebase/firestore";
 
@@ -114,8 +115,10 @@ export const updateUserLocations = async (userId: string, locations: string[]) =
 
 export const addJob = async (jobData: any) => {
   try {
+    const user = await getUserProfile(jobData.customerId);
     const docRef = await addDoc(collection(db, "jobs"), {
       ...jobData,
+      customerName: user?.name || "Anonymous",
       postedDate: new Date().toISOString(),
       status: 'open',
     });
@@ -128,7 +131,7 @@ export const addJob = async (jobData: any) => {
 };
 
 export const getAllJobs = async () => {
-  const jobsCol = collection(db, 'jobs');
+  const jobsCol = query(collection(db, 'jobs'));
   const jobSnapshot = await getDocs(jobsCol);
   const jobList = jobSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   return jobList;
@@ -138,13 +141,7 @@ export const getJobById = async (jobId: string) => {
   const docRef = doc(db, "jobs", jobId);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
-    const jobData = docSnap.data();
-    // Fetch customer data
-    if (jobData.customerId) {
-        const customerProfile = await getUserProfile(jobData.customerId);
-        jobData.customerName = customerProfile?.name || 'Unknown User';
-    }
-    return { id: docSnap.id, ...jobData };
+    return { id: docSnap.id, ...docSnap.data() };
   } else {
     return null;
   }
