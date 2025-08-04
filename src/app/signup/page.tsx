@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -94,29 +95,28 @@ export default function SignupPage() {
       const user = userCredential.user;
 
       // Persist user data
-       const newUserProfile = {
+      const baseProfile = {
         id: user.uid,
         name: `User ${user.uid.substring(0, 5)}`, // Placeholder name
         email: user.email, // This will be null with phone auth
         phone: user.phoneNumber,
         role: role,
         avatarUrl: `https://placehold.co/128x128.png`,
-        ...(role === 'worker'
-          ? {
-              specialty: 'New Worker',
-              rating: 0,
-              skills: [],
-              workingLocations: [],
-              bio: '',
-              reviews: [],
-              activeJobs: [],
-              completedJobs: [],
-            }
-          : {
-              activeJobs: [],
-              completedJobs: [],
-            }),
+        activeJobs: [],
+        completedJobs: [],
       };
+
+      const newUserProfile = role === 'worker'
+        ? {
+            ...baseProfile,
+            specialty: 'New Worker',
+            rating: 0,
+            skills: [],
+            workingLocations: [],
+            bio: '',
+            reviews: [],
+          }
+        : baseProfile;
       
       await addUserProfile(newUserProfile);
 
