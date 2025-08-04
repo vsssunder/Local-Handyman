@@ -2,7 +2,6 @@
 
 import { suggestSkills } from "@/ai/flows/suggest-skills";
 import { updateUserProfile } from "@/lib/data";
-import { auth } from "@/lib/firebase";
 import { z } from "zod";
 
 const skillSuggesterSchema = z.object({
@@ -42,7 +41,6 @@ const profileFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
   specialty: z.string().optional(),
   bio: z.string().optional(),
-  // For simplicity, we'll handle skills and locations separately for now.
 });
 
 type ProfileFormState = {

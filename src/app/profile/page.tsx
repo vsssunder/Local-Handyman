@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { getUserProfile } from "@/lib/data";
+import { getUserProfile, updateUserSkills, updateUserLocations } from "@/lib/data";
 import { useRouter } from "next/navigation";
 import { handleUpdateProfile } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
@@ -18,12 +18,25 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { SkillSuggester } from "@/components/SkillSuggester";
-import { Edit, MapPin, PlusCircle, Loader2, Save } from "lucide-react";
+import { Edit, MapPin, PlusCircle, Loader2, Save, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog"
+
 
 type UserProfile = {
+  id: string;
   name: string;
-  email: string;
+  email: string | null; // email can be null with phone auth
+  phone: string | null;
   role: string;
   avatarUrl: string;
   specialty?: string;
@@ -64,6 +77,9 @@ export default function ProfilePage() {
     { message: "", error: false }
   );
 
+  const [newSkill, setNewSkill] = useState("");
+  const [newLocation, setNewLocation] = useState("");
+
   useEffect(() => {
     if (formState.message) {
       toast({
@@ -74,25 +90,68 @@ export default function ProfilePage() {
     }
   }, [formState, toast]);
 
+  const fetchProfile = async (currentUser: User) => {
+    const profile = (await getUserProfile(currentUser.uid)) as UserProfile | null;
+    if (profile) {
+      setUserProfile(profile);
+    } else {
+       toast({ title: "Error", description: "Could not load user profile.", variant: "destructive" });
+    }
+     setLoading(false);
+  }
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        const profile = (await getUserProfile(currentUser.uid)) as UserProfile | null;
-        if (profile) {
-          setUserProfile(profile);
-        } else {
-          // Handle case where profile doesn't exist for a logged-in user
-           toast({ title: "Error", description: "Could not load user profile.", variant: "destructive" });
-        }
+        await fetchProfile(currentUser);
       } else {
         router.push("/login");
       }
-      setLoading(false);
     });
     return () => unsubscribe();
   }, [router, toast]);
   
+  const handleAddSkill = async (skillToAdd?: string) => {
+    const skill = (skillToAdd || newSkill).trim();
+    if (skill && userProfile && !userProfile.skills.includes(skill)) {
+      const updatedSkills = [...userProfile.skills, skill];
+      await updateUserSkills(userProfile.id, updatedSkills);
+      setUserProfile({...userProfile, skills: updatedSkills });
+      setNewSkill("");
+      toast({ title: "Success", description: "Skill added!" });
+    }
+  };
+
+  const handleRemoveSkill = async (skillToRemove: string) => {
+    if (userProfile) {
+      const updatedSkills = userProfile.skills.filter(s => s !== skillToRemove);
+      await updateUserSkills(userProfile.id, updatedSkills);
+      setUserProfile({...userProfile, skills: updatedSkills });
+      toast({ title: "Success", description: "Skill removed." });
+    }
+  };
+  
+  const handleAddLocation = async () => {
+    const location = newLocation.trim();
+    if (location && userProfile && !userProfile.workingLocations.includes(location)) {
+      const updatedLocations = [...userProfile.workingLocations, location];
+      await updateUserLocations(userProfile.id, updatedLocations);
+      setUserProfile({...userProfile, workingLocations: updatedLocations });
+      setNewLocation("");
+      toast({ title: "Success", description: "Location added!" });
+    }
+  };
+
+  const handleRemoveLocation = async (locationToRemove: string) => {
+    if (userProfile) {
+      const updatedLocations = userProfile.workingLocations.filter(l => l !== locationToRemove);
+      await updateUserLocations(userProfile.id, updatedLocations);
+      setUserProfile({...userProfile, workingLocations: updatedLocations });
+      toast({ title: "Success", description: "Location removed." });
+    }
+  };
+
 
   if (loading || !userProfile) {
     return (
@@ -138,7 +197,7 @@ export default function ProfilePage() {
                 </Button>
               </div>
               <h2 className="text-2xl font-bold mt-4 font-headline">{userProfile.name}</h2>
-              <p className="text-muted-foreground">{userProfile.specialty || 'No specialty set'}</p>
+              <p className="text-muted-foreground">{userProfile.specialty || (userProfile.role === 'worker' ? 'No specialty set' : 'Customer')}</p>
             </CardContent>
           </Card>
         </div>
@@ -156,14 +215,14 @@ export default function ProfilePage() {
                     <Input id="name" name="name" defaultValue={userProfile.name} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email Address</Label>
-                    <Input id="email" type="email" defaultValue={userProfile.email} disabled />
+                    <Label htmlFor="contact">Contact Info</Label>
+                    <Input id="contact" type="text" defaultValue={userProfile.phone || userProfile.email || "Not available"} disabled />
                   </div>
                 </div>
-                 <div className="space-y-2">
+                 {userProfile.role === 'worker' && <div className="space-y-2">
                     <Label htmlFor="specialty">Specialty / Title</Label>
                     <Input id="specialty" name="specialty" defaultValue={userProfile.specialty} placeholder="e.g., Master Plumber"/>
-                </div>
+                </div>}
                 <div className="space-y-2">
                   <Label htmlFor="bio">About Me</Label>
                   <Textarea id="bio" name="bio" defaultValue={userProfile.bio} rows={4} placeholder="Tell customers a little about yourself and your experience."/>
@@ -172,23 +231,56 @@ export default function ProfilePage() {
                   <SubmitButton />
                 </div>
               </form>
-
+              
+              {userProfile.role === 'worker' && <>
               <Separator />
 
               <div>
                 <h3 className="text-lg font-medium font-headline">My Skills</h3>
                 <div className="flex flex-wrap gap-2 mt-4">
                   {userProfile.skills.map((skill) => (
-                    <Badge key={skill} variant="default" className="text-sm py-1">
+                    <Badge key={skill} variant="default" className="text-sm py-1 pl-3 pr-1">
                       {skill}
+                      <button onClick={() => handleRemoveSkill(skill)} className="ml-2 rounded-full hover:bg-white/20 p-0.5"><X className="h-3 w-3"/></button>
                     </Badge>
                   ))}
-                  <Button variant="outline" size="sm" className="gap-1">
-                    <PlusCircle className="h-4 w-4"/>
-                    Add Skill
-                  </Button>
+                  
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-1">
+                          <PlusCircle className="h-4 w-4"/>
+                          Add Skill
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add a new skill</DialogTitle>
+                        <DialogDescription>Enter a new skill to add to your profile.</DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <Input 
+                          value={newSkill} 
+                          onChange={(e) => setNewSkill(e.target.value)} 
+                          placeholder="e.g., Drywall Repair"
+                          onKeyDown={(e) => {
+                            if(e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddSkill();
+                              (e.target as HTMLElement).closest('[role="dialog"]')!.querySelector('button[aria-label="Close"]')?.click();
+                            }
+                          }}
+                        />
+                      </div>
+                      <DialogFooter>
+                        <DialogClose asChild>
+                          <Button onClick={() => handleAddSkill()} type="submit">Add Skill</Button>
+                        </DialogClose>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
                 </div>
-                <SkillSuggester currentBio={userProfile.bio} />
+                <SkillSuggester currentBio={userProfile.bio} onSkillSelect={handleAddSkill} />
               </div>
 
               <Separator />
@@ -197,17 +289,48 @@ export default function ProfilePage() {
                 <h3 className="text-lg font-medium font-headline">Working Locations</h3>
                  <div className="flex flex-wrap gap-2 mt-4">
                   {userProfile.workingLocations.map((location) => (
-                    <Badge key={location} variant="secondary" className="text-sm py-1 gap-1">
+                    <Badge key={location} variant="secondary" className="text-sm py-1 pl-3 pr-1 gap-1">
                       <MapPin className="h-3 w-3"/>
                       {location}
+                      <button onClick={() => handleRemoveLocation(location)} className="ml-2 rounded-full hover:bg-black/10 p-0.5"><X className="h-3 w-3"/></button>
                     </Badge>
                   ))}
-                  <Button variant="outline" size="sm" className="gap-1">
-                    <PlusCircle className="h-4 w-4"/>
-                    Add Location
-                  </Button>
+                   <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-1">
+                          <PlusCircle className="h-4 w-4"/>
+                          Add Location
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add a new location</DialogTitle>
+                        <DialogDescription>Enter a new city or area you work in.</DialogDescription>
+                      </DialogHeader>
+                       <div className="grid gap-4 py-4">
+                        <Input 
+                          value={newLocation} 
+                          onChange={(e) => setNewLocation(e.target.value)} 
+                          placeholder="e.g., San Francisco"
+                          onKeyDown={(e) => {
+                            if(e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddLocation();
+                               (e.target as HTMLElement).closest('[role="dialog"]')!.querySelector('button[aria-label="Close"]')?.click();
+                            }
+                          }}
+                        />
+                      </div>
+                      <DialogFooter>
+                        <DialogClose asChild>
+                          <Button onClick={handleAddLocation} type="submit">Add Location</Button>
+                        </DialogClose>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </div>
+              </>}
 
             </CardContent>
           </Card>

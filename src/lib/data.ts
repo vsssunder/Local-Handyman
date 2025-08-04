@@ -1,5 +1,5 @@
 import { db } from "./firebase";
-import { doc, setDoc, getDoc, collection, addDoc, getDocs, updateDoc, query, where } from "firebase/firestore";
+import { doc, setDoc, getDoc, collection, addDoc, getDocs, updateDoc, query, where, arrayUnion, arrayRemove } from "firebase/firestore";
 
 export const serviceCategories = [
   "Plumbing",
@@ -88,6 +88,28 @@ export const updateUserProfile = async (userId: string, data: any) => {
         throw error;
     }
 }
+
+export const updateUserSkills = async (userId: string, skills: string[]) => {
+    try {
+        const userRef = doc(db, "users", userId);
+        await updateDoc(userRef, { skills });
+        console.log("User skills updated in Firestore");
+    } catch (error) {
+        console.error("Error updating skills: ", error);
+        throw error;
+    }
+};
+
+export const updateUserLocations = async (userId: string, locations: string[]) => {
+    try {
+        const userRef = doc(db, "users", userId);
+        await updateDoc(userRef, { workingLocations: locations });
+        console.log("User locations updated in Firestore");
+    } catch (error) {
+        console.error("Error updating locations: ", error);
+        throw error;
+    }
+};
 
 
 export const addJob = async (jobData: any) => {

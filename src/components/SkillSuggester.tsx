@@ -26,16 +26,15 @@ function SubmitButton() {
   );
 }
 
-export function SkillSuggester({ currentBio }: { currentBio?: string }) {
+export function SkillSuggester({ currentBio, onSkillSelect }: { currentBio?: string, onSkillSelect: (skill: string) => void }) {
   const [state, formAction] = useFormState(handleSkillSuggestion, initialState);
-  const [localSkills, setLocalSkills] = useState<string[]>([]);
   const { toast } = useToast();
 
   const handleAddSkill = (skill: string) => {
-    setLocalSkills(prev => [...prev, skill]);
+    onSkillSelect(skill);
     toast({
       title: "Skill Added!",
-      description: `"${skill}" has been added to your profile skills.`,
+      description: `"${skill}" has been added. Don't forget to save your profile.`,
     })
   }
   
@@ -47,13 +46,13 @@ export function SkillSuggester({ currentBio }: { currentBio?: string }) {
             <CardTitle className="font-headline">AI Skill Suggester</CardTitle>
         </div>
         <CardDescription>
-          Not sure what skills to add? Paste a job description or your bio below and let AI suggest relevant skills for you.
+          Use your bio to let AI suggest relevant skills for you.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form action={formAction} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="jobDescription">Job Description or Bio</Label>
+            <Label htmlFor="jobDescription">Your Bio or a Job Description</Label>
             <Textarea
               id="jobDescription"
               name="jobDescription"
