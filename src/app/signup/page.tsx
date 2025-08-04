@@ -90,26 +90,28 @@ export default function SignupPage() {
       const user = userCredential.user;
 
       // Persist user data
-      const newUserProfile = {
+       const newUserProfile = {
         id: user.uid,
         name: `User ${user.uid.substring(0, 5)}`, // Placeholder name
         email: user.email, // This will be null with phone auth
         phone: user.phoneNumber,
         role: role,
         avatarUrl: `https://placehold.co/128x128.png`,
-        ...(role === 'worker' ? {
-          specialty: "New Worker",
-          rating: 0,
-          skills: [],
-          workingLocations: [],
-          bio: "",
-          activeJobs: [],
-          completedJobs: [],
-           reviews: [],
-        } : {
-          activeJobs: [],
-          completedJobs: [],
-        })
+        ...(role === 'worker'
+          ? {
+              specialty: 'New Worker',
+              rating: 0,
+              skills: [],
+              workingLocations: [],
+              bio: '',
+              reviews: [],
+              activeJobs: [],
+              completedJobs: [],
+            }
+          : {
+              activeJobs: [],
+              completedJobs: [],
+            }),
       };
       
       await addUserProfile(newUserProfile);
