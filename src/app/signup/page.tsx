@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -39,11 +39,25 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
+  
+  const recaptchaContainerRef = useRef<HTMLDivElement>(null);
 
-  // Effect to ensure the reCAPTCHA container is only created once
   useEffect(() => {
-    if (!window.recaptchaVerifier) {
-      // The container will be used by the handleSendVerificationCode function
+    // This effect ensures the reCAPTCHA is rendered only once.
+    if (recaptchaContainerRef.current && !window.recaptchaVerifier) {
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
+        'size': 'normal',
+        'callback': () => {
+          // reCAPTCHA solved
+        },
+        'expired-callback': () => {
+           setError("reCAPTCHA expired. Please try again.");
+           if (window.grecaptcha) {
+            window.grecaptcha.reset(window.recaptchaVerifier.widgetId);
+           }
+        }
+      });
+      window.recaptchaVerifier.render();
     }
   }, []);
 
@@ -51,19 +65,9 @@ export default function SignupPage() {
     setError(null);
     setIsSubmitting(true);
     try {
-      // Use window.recaptchaVerifier to avoid creating multiple instances
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'normal', 
-        'callback': (response: any) => {
-          // reCAPTCHA solved
-        },
-        'expired-callback': () => {
-           setError("reCAPTCHA expired. Please try again.");
-           if (window.grecaptcha) {
-            window.grecaptcha.reset();
-           }
-        }
-      });
+      if (!window.recaptchaVerifier) {
+        throw new Error("reCAPTCHA not initialized.");
+      }
       
       const result = await signInWithPhoneNumber(auth, `+${phoneNumber}`, window.recaptchaVerifier);
       setConfirmationResult(result);
@@ -169,7 +173,7 @@ export default function SignupPage() {
                     </div>
                   </RadioGroup>
                 </div>
-                 <div id="recaptcha-container" className="my-4 flex justify-center"></div>
+                 <div ref={recaptchaContainerRef} className="my-4 flex justify-center"></div>
                 <Button onClick={handleSendVerificationCode} disabled={isSubmitting || !phoneNumber} className="w-full">
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Send Verification Code

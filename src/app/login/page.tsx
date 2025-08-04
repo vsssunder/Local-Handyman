@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -35,11 +35,12 @@ export default function LoginPage() {
   const { toast } = useToast();
   const router = useRouter();
 
-  const handleSendVerificationCode = async () => {
-    setError(null);
-    setIsSubmitting(true);
-    try {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+  const recaptchaContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // This effect ensures the reCAPTCHA is rendered only once.
+    if (recaptchaContainerRef.current && !window.recaptchaVerifier) {
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
         'size': 'normal',
         'callback': () => {
           // reCAPTCHA solved
@@ -47,10 +48,22 @@ export default function LoginPage() {
         'expired-callback': () => {
            setError("reCAPTCHA expired. Please try again.");
            if (window.grecaptcha) {
-            window.grecaptcha.reset();
+            window.grecaptcha.reset(window.recaptchaVerifier.widgetId);
            }
         }
       });
+      window.recaptchaVerifier.render();
+    }
+  }, []);
+
+
+  const handleSendVerificationCode = async () => {
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      if (!window.recaptchaVerifier) {
+        throw new Error("reCAPTCHA not initialized.");
+      }
       
       const result = await signInWithPhoneNumber(auth, `+${phoneNumber}`, window.recaptchaVerifier);
       setConfirmationResult(result);
@@ -110,7 +123,7 @@ export default function LoginPage() {
                   />
                   <p className="text-xs text-muted-foreground">Include country code (e.g., 1 for US)</p>
                 </div>
-                <div id="recaptcha-container" className="my-4 flex justify-center"></div>
+                <div ref={recaptchaContainerRef} className="my-4 flex justify-center"></div>
                 <Button onClick={handleSendVerificationCode} disabled={isSubmitting || !phoneNumber} className="w-full">
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Send Verification Code
