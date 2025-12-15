@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -20,11 +21,10 @@ import { Loader2 } from "lucide-react";
 import { addUserProfile } from "@/lib/data";
 import { useFirebase } from "@/components/FirebaseProvider";
 
-// It's good practice to declare this type globally or in a shared types file
 declare global {
   interface Window {
-    grecaptcha: any;
     recaptchaVerifier?: RecaptchaVerifier;
+    confirmationResult?: ConfirmationResult;
   }
 }
 
@@ -43,42 +43,42 @@ export default function SignupPage() {
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!auth) return;
+    if (!auth || window.recaptchaVerifier) return;
+    
+    // Ensure the container is empty before rendering
+    if (recaptchaContainerRef.current) {
+        recaptchaContainerRef.current.innerHTML = "";
+    }
 
     const verifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current!, {
-        'size': 'normal',
+        'size': 'invisible', // Use invisible reCAPTCHA
         'callback': () => {
-          // reCAPTCHA solved
+          // reCAPTCHA solved, allow sign-in
         },
         'expired-callback': () => {
            setError("reCAPTCHA expired. Please try again.");
-           if (window.grecaptcha && window.recaptchaVerifier) {
-            window.grecaptcha.reset(window.recaptchaVerifier.widgetId);
-           }
         }
     });
     window.recaptchaVerifier = verifier;
 
-    verifier.render();
-
-    return () => {
-        verifier.clear();
-    }
   }, [auth]);
 
   const handleSendVerificationCode = async () => {
     setError(null);
     setIsSubmitting(true);
+
+    if (!auth || !window.recaptchaVerifier) {
+      setError("reCAPTCHA verifier not initialized.");
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
-      if (!window.recaptchaVerifier || !auth) {
-        throw new Error("reCAPTCHA not initialized.");
-      }
-      
-      const result = await signInWithPhoneNumber(auth, `+${phoneNumber}`, window.recaptchaVerifier);
+      const formattedPhoneNumber = `+${phoneNumber}`;
+      const result = await signInWithPhoneNumber(auth, formattedPhoneNumber, window.recaptchaVerifier);
       setConfirmationResult(result);
       toast({ title: "Verification code sent!", description: "Check your phone for the SMS message." });
-    } catch (err: any)
-     {
+    } catch (err: any) {
       console.error(err);
       setError(err.message);
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -139,6 +139,7 @@ export default function SignupPage() {
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-14rem)] py-12">
+      <div id="recaptcha-container-signup" ref={recaptchaContainerRef}></div>
       <Card className="mx-auto max-w-sm w-full">
         <CardHeader>
           <CardTitle className="text-xl font-headline">Sign Up with Phone</CardTitle>
@@ -176,7 +177,6 @@ export default function SignupPage() {
                     </div>
                   </RadioGroup>
                 </div>
-                 <div ref={recaptchaContainerRef} className="my-4 flex justify-center"></div>
                 <Button onClick={handleSendVerificationCode} disabled={isSubmitting || !phoneNumber} className="w-full">
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Send Verification Code
