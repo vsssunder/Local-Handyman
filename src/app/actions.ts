@@ -1,8 +1,24 @@
 "use server";
 
 import { suggestSkills } from "@/ai/flows/suggest-skills";
-import { updateUserProfile } from "@/lib/data";
+import { updateUserProfile as updateUserProfileData } from "@/lib/data";
+import { getFirestore } from "firebase-admin/firestore";
+import { initializeApp, getApps, App } from "firebase-admin/app";
 import { z } from "zod";
+
+// This is a server action, so we need to use the admin SDK
+// We will initialize it only once.
+let adminApp: App;
+if (!getApps().length) {
+  adminApp = initializeApp({
+    // projectId, etc. will be picked up from environment variables
+  });
+} else {
+  adminApp = getApps()[0];
+}
+
+const db = getFirestore(adminApp);
+
 
 const skillSuggesterSchema = z.object({
   jobDescription: z.string().min(10, 'Job description must be at least 10 characters long.'),
@@ -67,7 +83,7 @@ export async function handleUpdateProfile(userId: string, prevState: ProfileForm
     }
 
     try {
-        await updateUserProfile(userId, validatedFields.data);
+        await updateUserProfileData(userId, validatedFields.data, db);
         return { message: "Profile updated successfully!", error: false };
     } catch (error) {
         console.error("Error updating profile:", error);

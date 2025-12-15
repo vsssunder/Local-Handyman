@@ -6,7 +6,7 @@ import { getJobById, getWorkers, getUserProfile } from "@/lib/data";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { MapPin, Calendar, DollarSign, User, Star, Loader2 } from "lucide-react";
+import { MapPin, Calendar, DollarSign, Star } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { formatDistanceToNow } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useFirebase } from "@/components/FirebaseProvider";
 
 type Job = {
   id: string;
@@ -45,31 +46,31 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
   const [applicants, setApplicants] = useState<Worker[]>([]);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(true);
+  const { db } = useFirebase();
 
   useEffect(() => {
+    if (!db) return;
+
     const fetchJobData = async () => {
-      const jobData = (await getJobById(params.id)) as Job | null;
+      const jobData = (await getJobById(params.id, db)) as Job | null;
       if (!jobData) {
         notFound();
       }
       setJob(jobData);
       
-      const customerProfile = await getUserProfile(jobData.customerId);
+      const customerProfile = await getUserProfile(jobData.customerId, db);
       if (customerProfile) {
         setCustomer({ name: customerProfile.name, avatarUrl: customerProfile.avatarUrl });
       }
 
-
-      // In a real app, you'd fetch actual applicants for the job.
-      // For now, we'll just show some example workers.
-      const workerData = (await getWorkers()) as Worker[];
+      const workerData = (await getWorkers(db)) as Worker[];
       setApplicants(workerData.slice(0, 3));
       
       setLoading(false);
     };
 
     fetchJobData();
-  }, [params.id]);
+  }, [params.id, db]);
 
   if (loading) {
     return (

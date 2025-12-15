@@ -16,6 +16,7 @@ import { getAllJobs, serviceCategories } from "@/lib/data";
 import { Search } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
+import { useFirebase } from "@/components/FirebaseProvider";
 
 type Job = {
   id: string;
@@ -31,16 +32,18 @@ type Job = {
 export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  const { db } = useFirebase();
 
   useEffect(() => {
+    if (!db) return;
     const fetchJobs = async () => {
       setLoading(true);
-      const jobList = await getAllJobs();
+      const jobList = await getAllJobs(db);
       setJobs(jobList as Job[]);
       setLoading(false);
     };
     fetchJobs();
-  }, []);
+  }, [db]);
 
   return (
     <div className="container mx-auto py-8 px-4">

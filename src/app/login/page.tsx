@@ -12,17 +12,17 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { auth } from "@/lib/firebase";
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { useFirebase } from "@/components/FirebaseProvider";
 
 // It's good practice to declare this type globally or in a shared types file
 declare global {
   interface Window {
     grecaptcha: any;
-    recaptchaVerifier: RecaptchaVerifier;
+    recaptchaVerifier?: RecaptchaVerifier;
   }
 }
 
@@ -34,34 +34,42 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
+  const { auth } = useFirebase();
 
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // This effect ensures the reCAPTCHA is rendered only once.
-    if (recaptchaContainerRef.current && !window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
+    if (!auth) return;
+    
+    const verifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current!, {
         'size': 'normal',
         'callback': () => {
           // reCAPTCHA solved
         },
         'expired-callback': () => {
            setError("reCAPTCHA expired. Please try again.");
-           if (window.grecaptcha) {
+           if (window.grecaptcha && window.recaptchaVerifier) {
             window.grecaptcha.reset(window.recaptchaVerifier.widgetId);
            }
         }
-      });
-      window.recaptchaVerifier.render();
+    });
+    window.recaptchaVerifier = verifier;
+
+    // Render the reCAPTCHA
+    verifier.render();
+    
+    // Cleanup
+    return () => {
+      verifier.clear();
     }
-  }, []);
+  }, [auth]);
 
 
   const handleSendVerificationCode = async () => {
     setError(null);
     setIsSubmitting(true);
     try {
-      if (!window.recaptchaVerifier) {
+      if (!window.recaptchaVerifier || !auth) {
         throw new Error("reCAPTCHA not initialized.");
       }
       

@@ -4,7 +4,6 @@
 import { useEffect, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { auth } from "@/lib/firebase";
 import { getUserProfile, updateUserSkills, updateUserLocations } from "@/lib/data";
 import { useRouter } from "next/navigation";
 import { handleUpdateProfile } from "@/app/actions";
@@ -31,6 +30,7 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog"
+import { useFirebase } from "@/components/FirebaseProvider";
 
 
 type UserProfile = {
@@ -72,6 +72,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
+  const { auth, db } = useFirebase();
 
   const [formState, formAction] = useFormState(
     handleUpdateProfile.bind(null, user?.uid || ""),
@@ -92,11 +93,12 @@ export default function ProfilePage() {
   }, [formState, toast]);
 
   useEffect(() => {
+    if (!auth || !db) return;
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
         try {
-          const profile = (await getUserProfile(currentUser.uid)) as UserProfile | null;
+          const profile = (await getUserProfile(currentUser.uid, db)) as UserProfile | null;
           if (profile) {
             setUserProfile(profile);
           } else {
@@ -115,13 +117,14 @@ export default function ProfilePage() {
       }
     });
     return () => unsubscribe();
-  }, [router, toast]);
+  }, [router, toast, auth, db]);
   
   const handleAddSkill = async (skillToAdd?: string) => {
+    if (!db) return;
     const skill = (skillToAdd || newSkill).trim();
     if (skill && userProfile && !userProfile.skills.includes(skill)) {
       const updatedSkills = [...userProfile.skills, skill];
-      await updateUserSkills(userProfile.id, updatedSkills);
+      await updateUserSkills(userProfile.id, updatedSkills, db);
       setUserProfile({...userProfile, skills: updatedSkills });
       setNewSkill("");
       toast({ title: "Success", description: "Skill added!" });
@@ -129,19 +132,20 @@ export default function ProfilePage() {
   };
 
   const handleRemoveSkill = async (skillToRemove: string) => {
-    if (userProfile) {
+    if (userProfile && db) {
       const updatedSkills = userProfile.skills.filter(s => s !== skillToRemove);
-      await updateUserSkills(userProfile.id, updatedSkills);
+      await updateUserSkills(userProfile.id, updatedSkills, db);
       setUserProfile({...userProfile, skills: updatedSkills });
       toast({ title: "Success", description: "Skill removed." });
     }
   };
   
   const handleAddLocation = async () => {
+    if (!db) return;
     const location = newLocation.trim();
     if (location && userProfile && !userProfile.workingLocations.includes(location)) {
       const updatedLocations = [...userProfile.workingLocations, location];
-      await updateUserLocations(userProfile.id, updatedLocations);
+      await updateUserLocations(userProfile.id, updatedLocations, db);
       setUserProfile({...userProfile, workingLocations: updatedLocations });
       setNewLocation("");
       toast({ title: "Success", description: "Location added!" });
@@ -149,9 +153,9 @@ export default function ProfilePage() {
   };
 
   const handleRemoveLocation = async (locationToRemove: string) => {
-    if (userProfile) {
+    if (userProfile && db) {
       const updatedLocations = userProfile.workingLocations.filter(l => l !== locationToRemove);
-      await updateUserLocations(userProfile.id, updatedLocations);
+      await updateUserLocations(userProfile.id, updatedLocations, db);
       setUserProfile({...userProfile, workingLocations: updatedLocations });
       toast({ title: "Success", description: "Location removed." });
     }
@@ -344,5 +348,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-    

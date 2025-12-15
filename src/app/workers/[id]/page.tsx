@@ -8,9 +8,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Star, MapPin, MessageCircle } from "lucide-react";
+import { Star, MapPin } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useFirebase } from "@/components/FirebaseProvider";
 
 type WorkerProfile = {
   id: string;
@@ -23,16 +23,19 @@ type WorkerProfile = {
   workingLocations?: string[];
   imageUrl?: string;
   avatarUrl: string;
+  role: string;
 };
 
 export default function WorkerProfilePage({ params }: { params: { id: string } }) {
   const [worker, setWorker] = useState<WorkerProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const { db } = useFirebase();
 
   useEffect(() => {
+    if (!db) return;
     const fetchWorker = async () => {
       setLoading(true);
-      const profile = (await getUserProfile(params.id)) as WorkerProfile | null;
+      const profile = (await getUserProfile(params.id, db)) as WorkerProfile | null;
       if (!profile || profile.role !== 'worker') {
         notFound();
       }
@@ -42,7 +45,7 @@ export default function WorkerProfilePage({ params }: { params: { id: string } }
       setLoading(false);
     };
     fetchWorker();
-  }, [params.id]);
+  }, [params.id, db]);
   
   if (loading) {
     return (

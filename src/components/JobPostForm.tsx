@@ -26,9 +26,9 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { serviceCategories, addJob } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
-import { auth } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { useFirebase } from "./FirebaseProvider";
 
 const jobPostSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters long."),
@@ -42,6 +42,7 @@ const jobPostSchema = z.object({
 export function JobPostForm() {
   const { toast } = useToast();
   const router = useRouter();
+  const { auth, db } = useFirebase();
 
   const form = useForm<z.infer<typeof jobPostSchema>>({
     resolver: zodResolver(jobPostSchema),
@@ -55,8 +56,8 @@ export function JobPostForm() {
   const { isSubmitting } = form.formState;
 
   async function onSubmit(values: z.infer<typeof jobPostSchema>) {
-    const user = auth.currentUser;
-    if (!user) {
+    const user = auth?.currentUser;
+    if (!user || !db) {
         toast({
             title: "Error",
             description: "You must be logged in to post a job.",
@@ -69,7 +70,7 @@ export function JobPostForm() {
       const jobId = await addJob({
         ...values,
         customerId: user.uid,
-      });
+      }, db);
       toast({
         title: "Job Posted!",
         description: "Your job has been successfully posted. Workers can now see and apply for it.",

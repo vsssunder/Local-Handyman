@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { auth } from "@/lib/firebase";
 import { getUserProfile } from "@/lib/data";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2 } from "lucide-react";
+import { useFirebase } from "@/components/FirebaseProvider";
 
 type UserProfile = {
   name: string;
@@ -25,27 +24,36 @@ export default function DashboardPage() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const { auth, db } = useFirebase();
 
   useEffect(() => {
+    if (!auth || !db) return;
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        const profile = await getUserProfile(currentUser.uid);
-        if (profile) {
-            setUserProfile(profile as UserProfile);
-        } else {
-            router.push("/login"); // Or a page to create profile
+        try {
+          const profile = await getUserProfile(currentUser.uid, db);
+          if (profile) {
+              setUserProfile(profile as UserProfile);
+          } else {
+              router.push("/login"); // Or a page to create profile
+          }
+        } catch (error) {
+           console.error("Failed to fetch user profile", error);
+           router.push("/login");
+        } finally {
+            setLoading(false);
         }
       } else {
         // No user is signed in.
         router.push("/login");
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     // Cleanup subscription on unmount
     return () => unsubscribe();
-  }, [router]);
+  }, [router, auth, db]);
 
   if (loading) {
     return (

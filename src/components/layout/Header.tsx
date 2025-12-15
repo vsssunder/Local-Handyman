@@ -4,7 +4,6 @@ import Link from "next/link";
 import { Hand, Menu, LogOut, FilePlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { User, onAuthStateChanged, signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 
@@ -25,6 +24,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { getUserProfile } from "@/lib/data";
+import { useFirebase } from "../FirebaseProvider";
+
 
 const navLinks = [
   { href: "/jobs", label: "Browse Jobs" },
@@ -45,12 +46,14 @@ export function Header() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
+  const { auth, db } = useFirebase();
 
   useEffect(() => {
+    if(!auth || !db) return;
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        const profile = await getUserProfile(currentUser.uid);
+        const profile = await getUserProfile(currentUser.uid, db);
         setUserProfile(profile as UserProfile);
       } else {
         setUserProfile(null);
@@ -59,9 +62,10 @@ export function Header() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [auth, db]);
 
   const handleLogout = async () => {
+    if (!auth) return;
     try {
       await signOut(auth);
       toast({ title: "Logged Out", description: "You have been successfully logged out." });

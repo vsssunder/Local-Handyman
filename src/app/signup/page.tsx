@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -14,19 +13,18 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { auth } from "@/lib/firebase";
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult, UserCredential } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { addUserProfile } from "@/lib/data";
-
+import { useFirebase } from "@/components/FirebaseProvider";
 
 // It's good practice to declare this type globally or in a shared types file
 declare global {
   interface Window {
     grecaptcha: any;
-    recaptchaVerifier: RecaptchaVerifier;
+    recaptchaVerifier?: RecaptchaVerifier;
   }
 }
 
@@ -40,33 +38,39 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
+  const { auth, db } = useFirebase();
   
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // This effect ensures the reCAPTCHA is rendered only once.
-    if (recaptchaContainerRef.current && !window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
+    if (!auth) return;
+
+    const verifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current!, {
         'size': 'normal',
         'callback': () => {
           // reCAPTCHA solved
         },
         'expired-callback': () => {
            setError("reCAPTCHA expired. Please try again.");
-           if (window.grecaptcha) {
+           if (window.grecaptcha && window.recaptchaVerifier) {
             window.grecaptcha.reset(window.recaptchaVerifier.widgetId);
            }
         }
-      });
-      window.recaptchaVerifier.render();
+    });
+    window.recaptchaVerifier = verifier;
+
+    verifier.render();
+
+    return () => {
+        verifier.clear();
     }
-  }, []);
+  }, [auth]);
 
   const handleSendVerificationCode = async () => {
     setError(null);
     setIsSubmitting(true);
     try {
-      if (!window.recaptchaVerifier) {
+      if (!window.recaptchaVerifier || !auth) {
         throw new Error("reCAPTCHA not initialized.");
       }
       
@@ -85,7 +89,7 @@ export default function SignupPage() {
 
   const handleVerifyCode = async () => {
     setError(null);
-    if (!confirmationResult) {
+    if (!confirmationResult || !db) {
       setError("Please request a verification code first.");
       return;
     }
@@ -94,11 +98,10 @@ export default function SignupPage() {
       const userCredential: UserCredential = await confirmationResult.confirm(verificationCode);
       const user = userCredential.user;
 
-      // Persist user data
-      const baseProfile = {
+       const baseProfile = {
         id: user.uid,
-        name: `User ${user.uid.substring(0, 5)}`, // Placeholder name
-        email: user.email, // This will be null with phone auth
+        name: `User ${user.uid.substring(0, 5)}`,
+        email: user.email,
         phone: user.phoneNumber,
         role: role,
         avatarUrl: `https://placehold.co/128x128.png`,
@@ -118,7 +121,7 @@ export default function SignupPage() {
           }
         : baseProfile;
       
-      await addUserProfile(newUserProfile);
+      await addUserProfile(newUserProfile, db);
 
       toast({ title: "Success!", description: "Your account has been created." });
       

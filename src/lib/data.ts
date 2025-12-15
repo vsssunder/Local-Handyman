@@ -1,6 +1,5 @@
 
-import { db } from "./firebase";
-import { doc, setDoc, getDoc, collection, addDoc, getDocs, updateDoc, query, where, arrayUnion, arrayRemove } from "firebase/firestore";
+import { doc, setDoc, getDoc, collection, addDoc, getDocs, updateDoc, query, where, arrayUnion, arrayRemove, Firestore } from "firebase/firestore";
 
 export const serviceCategories = [
   "Plumbing",
@@ -51,7 +50,8 @@ export const featuredWorkers = [
 ];
 
 
-export const addUserProfile = async (profile: any) => {
+export const addUserProfile = async (profile: any, db: Firestore) => {
+  if (!db) throw new Error("Firestore is not initialized");
   try {
     await setDoc(doc(db, "users", profile.id), profile);
     console.log("User profile saved to Firestore");
@@ -62,7 +62,8 @@ export const addUserProfile = async (profile: any) => {
   }
 };
 
-export const getUserProfile = async (userId: string) => {
+export const getUserProfile = async (userId: string, db: Firestore) => {
+  if (!db) throw new Error("Firestore is not initialized");
   try {
     const docRef = doc(db, "users", userId);
     const docSnap = await getDoc(docRef);
@@ -79,7 +80,8 @@ export const getUserProfile = async (userId: string) => {
   }
 };
 
-export const updateUserProfile = async (userId: string, data: any) => {
+export const updateUserProfile = async (userId: string, data: any, db: Firestore) => {
+    if (!db) throw new Error("Firestore is not initialized");
     try {
         const userRef = doc(db, "users", userId);
         await updateDoc(userRef, data);
@@ -90,7 +92,8 @@ export const updateUserProfile = async (userId: string, data: any) => {
     }
 }
 
-export const updateUserSkills = async (userId: string, skills: string[]) => {
+export const updateUserSkills = async (userId: string, skills: string[], db: Firestore) => {
+    if (!db) throw new Error("Firestore is not initialized");
     try {
         const userRef = doc(db, "users", userId);
         await updateDoc(userRef, { skills });
@@ -101,7 +104,8 @@ export const updateUserSkills = async (userId: string, skills: string[]) => {
     }
 };
 
-export const updateUserLocations = async (userId: string, locations: string[]) => {
+export const updateUserLocations = async (userId: string, locations: string[], db: Firestore) => {
+    if (!db) throw new Error("Firestore is not initialized");
     try {
         const userRef = doc(db, "users", userId);
         await updateDoc(userRef, { workingLocations: locations });
@@ -113,9 +117,10 @@ export const updateUserLocations = async (userId: string, locations: string[]) =
 };
 
 
-export const addJob = async (jobData: any) => {
+export const addJob = async (jobData: any, db: Firestore) => {
+  if (!db) throw new Error("Firestore is not initialized");
   try {
-    const user = await getUserProfile(jobData.customerId);
+    const user = await getUserProfile(jobData.customerId, db);
     const docRef = await addDoc(collection(db, "jobs"), {
       ...jobData,
       customerName: user?.name || "Anonymous",
@@ -130,14 +135,16 @@ export const addJob = async (jobData: any) => {
   }
 };
 
-export const getAllJobs = async () => {
+export const getAllJobs = async (db: Firestore) => {
+  if (!db) return [];
   const jobsCol = query(collection(db, 'jobs'));
   const jobSnapshot = await getDocs(jobsCol);
   const jobList = jobSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   return jobList;
 }
 
-export const getJobById = async (jobId: string) => {
+export const getJobById = async (jobId: string, db: Firestore) => {
+  if (!db) return null;
   const docRef = doc(db, "jobs", jobId);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
@@ -147,7 +154,8 @@ export const getJobById = async (jobId: string) => {
   }
 };
 
-export const getWorkers = async () => {
+export const getWorkers = async (db: Firestore) => {
+  if (!db) return [];
   const q = query(collection(db, "users"), where("role", "==", "worker"));
   const querySnapshot = await getDocs(q);
   const workerList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
