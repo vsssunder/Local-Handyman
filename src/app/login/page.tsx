@@ -32,6 +32,7 @@ export default function LoginPage() {
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [captchaReady, setCaptchaReady] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
   const { auth } = useFirebase();
@@ -39,22 +40,26 @@ export default function LoginPage() {
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!auth || window.recaptchaVerifier) return;
+    if (!auth || window.recaptchaVerifier) {
+      if (window.recaptchaVerifier) setCaptchaReady(true);
+      return;
+    };
 
     if (recaptchaContainerRef.current) {
-        recaptchaContainerRef.current.innerHTML = "";
-    }
-
-    const verifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current!, {
+      const verifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
         'size': 'invisible',
         'callback': () => {
-          // reCAPTCHA solved
+          setCaptchaReady(true);
         },
         'expired-callback': () => {
-           setError("reCAPTCHA expired. Please try again.");
+          setError("reCAPTCHA expired. Please try again.");
+          setCaptchaReady(false);
+          window.recaptchaVerifier?.clear();
         }
-    });
-    window.recaptchaVerifier = verifier;
+      });
+      window.recaptchaVerifier = verifier;
+      verifier.render().then(() => setCaptchaReady(true));
+    }
   }, [auth]);
 
 
@@ -62,21 +67,24 @@ export default function LoginPage() {
     setError(null);
     setIsSubmitting(true);
     
-    if (!auth || !window.recaptchaVerifier) {
-      setError("reCAPTCHA verifier not initialized.");
+    const verifier = window.recaptchaVerifier;
+    if (!auth || !verifier) {
+      setError("reCAPTCHA verifier not initialized. Please refresh the page.");
       setIsSubmitting(false);
       return;
     }
 
     try {
       const formattedPhoneNumber = `+${phoneNumber}`;
-      const result = await signInWithPhoneNumber(auth, formattedPhoneNumber, window.recaptchaVerifier);
+      const result = await signInWithPhoneNumber(auth, formattedPhoneNumber, verifier);
       setConfirmationResult(result);
       toast({ title: "Verification code sent!", description: "Check your phone for the SMS message." });
     } catch (err: any) {
       console.error(err);
       setError(err.message);
       toast({ title: "Error", description: err.message, variant: "destructive" });
+       // Reset reCAPTCHA on error
+      window.recaptchaVerifier?.clear();
     } finally {
       setIsSubmitting(false);
     }
@@ -129,9 +137,11 @@ export default function LoginPage() {
                   />
                   <p className="text-xs text-muted-foreground">Include country code (e.g., 1 for US)</p>
                 </div>
-                <Button onClick={handleSendVerificationCode} disabled={isSubmitting || !phoneNumber} className="w-full">
-                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Send Verification Code
+                <Button onClick={handleSendVerificationCode} disabled={isSubmitting || !phoneNumber || !captchaReady} className="w-full">
+                  {isSubmitting || !captchaReady ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : null}
+                  {isSubmitting ? 'Sending...' : !captchaReady ? 'Preparing...' : 'Send Verification Code'}
                 </Button>
               </>
             ) : (
