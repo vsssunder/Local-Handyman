@@ -27,7 +27,7 @@ export async function suggestSkills(input: SuggestSkillsInput): Promise<SuggestS
   return suggestSkillsFlow(input);
 }
 
-const prompt = ai.definePrompt({
+const prompt = ai().definePrompt({
   name: 'suggestSkillsPrompt',
   input: {schema: SuggestSkillsInputSchema},
   output: {schema: SuggestSkillsOutputSchema},
@@ -39,7 +39,7 @@ const prompt = ai.definePrompt({
   Job Description: {{{jobDescription}}}`,
 });
 
-const suggestSkillsFlow = ai.defineFlow(
+const suggestSkillsFlow = ai().defineFlow(
   {
     name: 'suggestSkillsFlow',
     inputSchema: SuggestSkillsInputSchema,
