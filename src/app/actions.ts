@@ -1,23 +1,22 @@
+
 "use server";
 
 import { suggestSkills } from "@/ai/flows/suggest-skills";
 import { updateUserProfile as updateUserProfileData } from "@/lib/data";
-import { getFirestore } from "firebase-admin/firestore";
-import { initializeApp, getApps, App } from "firebase-admin/app";
+import { getFirestore } from "firebase/firestore";
+import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { z } from "zod";
+import { firebaseConfig } from "@/lib/firebase";
 
-// This is a server action, so we need to use the admin SDK
-// We will initialize it only once.
-let adminApp: App;
+// This is a server action, but it's invoked from the client, so we should use the client SDK.
+let app: FirebaseApp;
 if (!getApps().length) {
-  adminApp = initializeApp({
-    // projectId, etc. will be picked up from environment variables
-  });
+  app = initializeApp(firebaseConfig);
 } else {
-  adminApp = getApps()[0];
+  app = getApps()[0];
 }
 
-const db = getFirestore(adminApp);
+const db = getFirestore(app);
 
 
 const skillSuggesterSchema = z.object({
