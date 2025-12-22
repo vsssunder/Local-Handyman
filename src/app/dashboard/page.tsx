@@ -37,8 +37,10 @@ export default function DashboardPage() {
       if (isSignInWithEmailLink(auth, window.location.href)) {
         let email = window.localStorage.getItem('emailForSignIn');
         const role = window.localStorage.getItem('roleForSignIn');
+        const name = window.localStorage.getItem('nameForSignIn');
+        const phone = window.localStorage.getItem('phoneForSignIn');
         
-        if (!email || !role) {
+        if (!email || !role || !name) {
           // This can happen if the user clears their local storage or opens the link in a different browser.
           // Let the onAuthStateChanged handle it or redirect.
           return;
@@ -53,9 +55,9 @@ export default function DashboardPage() {
           if (!existingProfile) {
               const baseProfile = {
                 id: user.uid,
-                name: `User ${user.uid.substring(0, 5)}`,
+                name: name,
                 email: user.email,
-                phone: user.phoneNumber,
+                phone: phone,
                 role: role,
                 avatarUrl: `https://placehold.co/128x128.png`,
                 activeJobs: [],
@@ -80,6 +82,8 @@ export default function DashboardPage() {
 
           window.localStorage.removeItem('emailForSignIn');
           window.localStorage.removeItem('roleForSignIn');
+          window.localStorage.removeItem('nameForSignIn');
+          window.localStorage.removeItem('phoneForSignIn');
           // Clean up URL by removing query parameters
           router.replace('/dashboard');
         } catch (error) {

@@ -21,6 +21,8 @@ import { Loader2 } from "lucide-react";
 import { useFirebase } from "@/components/FirebaseProvider";
 
 export default function SignupPage() {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("customer");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -31,6 +33,13 @@ export default function SignupPage() {
 
   const handleSignUp = async () => {
     setError(null);
+
+    if (!name) {
+      setError("Please enter your name.");
+      toast({ title: "Error", description: "Please enter your name.", variant: "destructive" });
+      return;
+    }
+    
     setIsSubmitting(true);
 
     if (!auth) {
@@ -51,6 +60,8 @@ export default function SignupPage() {
       
       // Save the email and role locally to be used after the user clicks the email link.
       window.localStorage.setItem('emailForSignIn', email);
+      window.localStorage.setItem('nameForSignIn', name);
+      window.localStorage.setItem('phoneForSignIn', phone);
       window.localStorage.setItem('roleForSignIn', role);
 
       toast({
@@ -81,6 +92,30 @@ export default function SignupPage() {
         <CardContent>
           <div className="grid gap-4">
             <div className="grid gap-2">
+                <Label htmlFor="name">Full Name</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="John Doe"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={isSubmitting}
+                />
+            </div>
+             <div className="grid gap-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="+1 (555) 123-4567"
+                  required
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  disabled={isSubmitting}
+                />
+            </div>
+            <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
@@ -105,7 +140,7 @@ export default function SignupPage() {
                 </div>
               </RadioGroup>
             </div>
-            <Button onClick={handleSignUp} disabled={isSubmitting || !email} className="w-full">
+            <Button onClick={handleSignUp} disabled={isSubmitting || !email || !name} className="w-full">
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Sign Up with Email
             </Button>
