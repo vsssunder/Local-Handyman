@@ -40,25 +40,27 @@ export default function LoginPage() {
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!auth || window.recaptchaVerifier) {
-      if (window.recaptchaVerifier) setCaptchaReady(true);
-      return;
-    };
+    if (!auth) return;
 
-    if (recaptchaContainerRef.current) {
-      const verifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
-        'size': 'invisible',
-        'callback': () => {
-          setCaptchaReady(true);
-        },
-        'expired-callback': () => {
-          setError("reCAPTCHA expired. Please try again.");
-          setCaptchaReady(false);
-          window.recaptchaVerifier?.clear();
-        }
-      });
-      window.recaptchaVerifier = verifier;
-      verifier.render().then(() => setCaptchaReady(true));
+    if (!window.recaptchaVerifier && recaptchaContainerRef.current) {
+        const verifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
+            'size': 'invisible',
+            'callback': () => {
+                setCaptchaReady(true);
+            },
+            'expired-callback': () => {
+                setError("reCAPTCHA expired. Please try again.");
+                setCaptchaReady(false);
+                window.recaptchaVerifier?.clear();
+            }
+        });
+        window.recaptchaVerifier = verifier;
+        verifier.render().then(() => setCaptchaReady(true)).catch((err) => {
+            console.error("reCAPTCHA render error:", err);
+            setError("Failed to initialize reCAPTCHA. Please refresh the page.");
+        });
+    } else if (window.recaptchaVerifier) {
+        setCaptchaReady(true);
     }
   }, [auth]);
 
@@ -83,8 +85,10 @@ export default function LoginPage() {
       console.error(err);
       setError(err.message);
       toast({ title: "Error", description: err.message, variant: "destructive" });
-       // Reset reCAPTCHA on error
-      window.recaptchaVerifier?.clear();
+      verifier.clear();
+      setCaptchaReady(false);
+      // Re-render the verifier
+      verifier.render().then(() => setCaptchaReady(true));
     } finally {
       setIsSubmitting(false);
     }
