@@ -26,7 +26,6 @@ export default function DashboardPage() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { auth, db } = useFirebase();
   const { toast } = useToast();
 
@@ -40,8 +39,8 @@ export default function DashboardPage() {
         const role = window.localStorage.getItem('roleForSignIn');
         
         if (!email || !role) {
-          toast({ title: "Registration failed", description: "Sign-up information not found. Please try signing up again.", variant: "destructive"});
-          router.push('/signup');
+          // This can happen if the user clears their local storage or opens the link in a different browser.
+          // Let the onAuthStateChanged handle it or redirect.
           return;
         }
 
@@ -81,8 +80,7 @@ export default function DashboardPage() {
 
           window.localStorage.removeItem('emailForSignIn');
           window.localStorage.removeItem('roleForSignIn');
-          setUser(user); // Manually set user for initial load
-          // Clean up URL
+          // Clean up URL by removing query parameters
           router.replace('/dashboard');
         } catch (error) {
           console.error("Sign up completion error:", error);
@@ -101,15 +99,19 @@ export default function DashboardPage() {
           const profile = await getUserProfile(currentUser.uid, db);
           if (profile) {
               setUserProfile(profile as UserProfile);
+          } else {
+             // Profile might not be created yet if they just signed up.
+             // The completeSignUp flow will handle profile creation.
+             // We can set a temporary loading state or wait.
           }
         } catch (error) {
            console.error("Failed to fetch user profile", error);
-           // Don't push to login, might be a temporary issue
+           toast({ title: "Error", description: "Could not fetch your profile. Please try again later.", variant: "destructive" });
         } finally {
             setLoading(false);
         }
       } else {
-        // Only redirect if not completing sign up
+        // Only redirect if not in the middle of a sign-in flow.
         if (!isSignInWithEmailLink(auth, window.location.href)) {
             router.push("/login");
         }
@@ -137,10 +139,19 @@ export default function DashboardPage() {
     );
   }
 
-  if (!user || !userProfile) {
+  if (!user) {
     return (
         <div className="container mx-auto py-8 px-4 text-center">
             <p>Redirecting to login...</p>
+        </div>
+    );
+  }
+  
+  if (!userProfile) {
+    // This can happen briefly during the signup process.
+     return (
+        <div className="container mx-auto py-8 px-4 text-center">
+            <p>Finalizing your account...</p>
         </div>
     );
   }

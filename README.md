@@ -17,8 +17,8 @@ To run this application on your local machine for development and testing, pleas
 
 You need to create an environment file to store your API keys.
 
-1.  Create a new file named `.env` in the root directory of the project.
-2.  Add your Google AI (Gemini) API key to the `.env` file. You can get a key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+1.  Create a new file named `.env.local` in the root directory of the project.
+2.  Add your Google AI (Gemini) API key to the `.env.local` file. You can get a key from [Google AI Studio](https://aistudio.google.com/app/apikey).
 
 ```
 GEMINI_API_KEY=YOUR_GEMINI_API_KEY_HERE

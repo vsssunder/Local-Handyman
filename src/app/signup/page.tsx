@@ -27,14 +27,14 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
-  const { auth, db } = useFirebase();
+  const { auth } = useFirebase();
 
   const handleSignUp = async () => {
     setError(null);
     setIsSubmitting(true);
 
-    if (!auth || !db) {
-      setError("Authentication service not available. Please try again later.");
+    if (!auth) {
+      setError("Authentication service is not available. Please try again later.");
       setIsSubmitting(false);
       return;
     }
@@ -42,7 +42,7 @@ export default function SignupPage() {
     const actionCodeSettings = {
       // URL to redirect back to.
       // Here we redirect to the dashboard page after sign up.
-      url: `${window.location.origin}/dashboard?role=${role}&email=${encodeURIComponent(email)}`,
+      url: `${window.location.origin}/dashboard`,
       handleCodeInApp: true,
     };
 

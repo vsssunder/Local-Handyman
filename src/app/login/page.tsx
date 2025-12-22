@@ -73,7 +73,7 @@ export default function LoginPage() {
     }
 
     const actionCodeSettings = {
-      url: window.location.origin + '/login', // URL to redirect back to
+      url: window.location.origin + '/dashboard', // Direct redirect to dashboard on success
       handleCodeInApp: true, // This must be true
     };
 
