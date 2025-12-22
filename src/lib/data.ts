@@ -1,4 +1,5 @@
 
+
 import { doc, setDoc, getDoc, collection, addDoc, getDocs, updateDoc, query, where, arrayUnion, arrayRemove, Firestore } from "firebase/firestore";
 
 export const serviceCategories = [
@@ -53,11 +54,11 @@ export const featuredWorkers = [
 export const addUserProfile = async (profile: any, db: Firestore) => {
   if (!db) throw new Error("Firestore is not initialized");
   try {
-    await setDoc(doc(db, "users", profile.id), profile);
+    // Use setDoc with the user's UID to ensure we don't create duplicate profiles
+    await setDoc(doc(db, "users", profile.id), profile, { merge: true });
     console.log("User profile saved to Firestore");
   } catch (error) {
-    console.error("Error adding document: ", error);
-    // You might want to throw the error or handle it appropriately
+    console.error("Error adding/updating document: ", error);
     throw error;
   }
 };

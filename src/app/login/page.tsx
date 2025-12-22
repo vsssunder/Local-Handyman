@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,98 +13,78 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from "firebase/auth";
+import { sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { useFirebase } from "@/components/FirebaseProvider";
 
-declare global {
-  interface Window {
-    recaptchaVerifier?: RecaptchaVerifier;
-    confirmationResult?: ConfirmationResult;
-  }
-}
-
 export default function LoginPage() {
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [verificationCode, setVerificationCode] = useState("");
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [captchaReady, setCaptchaReady] = useState(false);
+  const [linkSent, setLinkSent] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
   const { auth } = useFirebase();
 
-  const recaptchaContainerRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     if (!auth) return;
 
-    if (!window.recaptchaVerifier && recaptchaContainerRef.current) {
-        const verifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
-            'size': 'invisible',
-            'callback': () => {
-                setCaptchaReady(true);
-            },
-            'expired-callback': () => {
-                setError("reCAPTCHA expired. Please try again.");
-                setCaptchaReady(false);
-                window.recaptchaVerifier?.clear();
-            }
-        });
-        window.recaptchaVerifier = verifier;
-        verifier.render().then(() => setCaptchaReady(true)).catch((err) => {
-            console.error("reCAPTCHA render error:", err);
-            setError("Failed to initialize reCAPTCHA. Please refresh the page.");
-        });
-    } else if (window.recaptchaVerifier) {
-        setCaptchaReady(true);
-    }
-  }, [auth]);
+    // This effect handles the user returning from the email link
+    const completeSignIn = async () => {
+      if (isSignInWithEmailLink(auth, window.location.href)) {
+        setIsSubmitting(true);
+        let savedEmail = window.localStorage.getItem('emailForSignIn');
+        if (!savedEmail) {
+          // If the email is not found, we can't proceed.
+          // In a real app, you might prompt the user for their email again.
+          setError("Your sign-in link is invalid or has expired. Please try again.");
+          toast({ title: "Sign-in Failed", description: "Could not find your email for sign-in. The link may have expired.", variant: "destructive" });
+          setIsSubmitting(false);
+          router.push('/login');
+          return;
+        }
 
+        try {
+          await signInWithEmailLink(auth, savedEmail, window.location.href);
+          window.localStorage.removeItem('emailForSignIn');
+          toast({ title: "Logged In!", description: "You have successfully logged in." });
+          router.push("/dashboard");
+        } catch (err: any) {
+          console.error(err);
+          setError(err.message);
+          toast({ title: "Error", description: "The sign-in link is invalid or has expired.", variant: "destructive" });
+          setIsSubmitting(false);
+        }
+      }
+    };
+    completeSignIn();
+  }, [auth, router, toast]);
 
-  const handleSendVerificationCode = async () => {
+  const handleSendSignInLink = async () => {
     setError(null);
     setIsSubmitting(true);
-    
-    const verifier = window.recaptchaVerifier;
-    if (!auth || !verifier) {
-      setError("reCAPTCHA verifier not initialized. Please refresh the page.");
+
+    if (!auth) {
+      setError("Authentication service is not available. Please try again later.");
       setIsSubmitting(false);
       return;
     }
 
-    try {
-      const formattedPhoneNumber = `+${phoneNumber}`;
-      const result = await signInWithPhoneNumber(auth, formattedPhoneNumber, verifier);
-      setConfirmationResult(result);
-      toast({ title: "Verification code sent!", description: "Check your phone for the SMS message." });
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message);
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-      verifier.clear();
-      setCaptchaReady(false);
-      // Re-render the verifier
-      verifier.render().then(() => setCaptchaReady(true));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    const actionCodeSettings = {
+      url: window.location.origin + '/login', // URL to redirect back to
+      handleCodeInApp: true, // This must be true
+    };
 
-  const handleVerifyCode = async () => {
-    setError(null);
-    if (!confirmationResult) {
-      setError("Please request a verification code first.");
-      return;
-    }
-    setIsSubmitting(true);
     try {
-      await confirmationResult.confirm(verificationCode);
-      toast({ title: "Logged In!", description: "You have successfully logged in." });
-      router.push("/dashboard");
+      await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+      window.localStorage.setItem('emailForSignIn', email);
+      setLinkSent(true);
+      toast({
+        title: "Check your email!",
+        description: `A sign-in link has been sent to ${email}.`,
+      });
     } catch (err: any) {
       console.error(err);
       setError(err.message);
@@ -116,61 +96,47 @@ export default function LoginPage() {
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-14rem)] py-12">
-      <div id="recaptcha-container-login" ref={recaptchaContainerRef}></div>
       <Card className="mx-auto max-w-sm w-full">
         <CardHeader>
-          <CardTitle className="text-2xl font-headline">Login with Phone</CardTitle>
+          <CardTitle className="text-2xl font-headline">Login</CardTitle>
           <CardDescription>
-            Enter your phone number to login to your account.
+            Enter your email below to receive a login link.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4">
-             {!confirmationResult ? (
-              <>
-                <div className="grid gap-2">
-                  <Label htmlFor="phone-number">Phone Number</Label>
-                  <Input
-                    id="phone-number"
-                    type="tel"
-                    placeholder="1234567890"
-                    required
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
-                    disabled={isSubmitting}
-                  />
-                  <p className="text-xs text-muted-foreground">Include country code (e.g., 1 for US)</p>
-                </div>
-                <Button onClick={handleSendVerificationCode} disabled={isSubmitting || !phoneNumber || !captchaReady} className="w-full">
-                  {isSubmitting || !captchaReady ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : null}
-                  {isSubmitting ? 'Sending...' : !captchaReady ? 'Preparing...' : 'Send Verification Code'}
-                </Button>
-              </>
-            ) : (
-              <>
-                <div className="grid gap-2">
-                  <Label htmlFor="verification-code">Verification Code</Label>
-                  <Input
-                    id="verification-code"
-                    type="text"
-                    placeholder="123456"
-                    required
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value)}
-                    disabled={isSubmitting}
-                  />
-                </div>
-                <Button onClick={handleVerifyCode} disabled={isSubmitting || !verificationCode} className="w-full">
-                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Verify & Login
-                </Button>
-              </>
-            )}
+          {linkSent ? (
+            <div className="text-center">
+              <h3 className="text-lg font-semibold">Email Sent</h3>
+              <p className="text-muted-foreground mt-2">
+                A magic link has been sent to your email address. Click the link to log in.
+              </p>
+              <Button variant="link" onClick={() => { setLinkSent(false); setEmail(''); }}>
+                Use a different email
+              </Button>
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="m@example.com"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isSubmitting}
+                />
+              </div>
+              <Button onClick={handleSendSignInLink} disabled={isSubmitting || !email} className="w-full">
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {isSubmitting ? 'Sending...' : 'Send Login Link'}
+              </Button>
 
-            {error && <p className="text-sm text-destructive text-center">{error}</p>}
-          </div>
+              {error && <p className="text-sm text-destructive text-center">{error}</p>}
+            </div>
+          )}
+
           <div className="mt-4 text-center text-sm">
             Don&apos;t have an account?{" "}
             <Link href="/signup" className="underline">

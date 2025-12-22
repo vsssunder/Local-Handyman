@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -122,7 +123,7 @@ export function Header() {
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">{userProfile.name}</p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {user.phoneNumber || userProfile.email || 'No contact info'}
+                      {userProfile.email || 'No contact info'}
                     </p>
                   </div>
                 </DropdownMenuLabel>
